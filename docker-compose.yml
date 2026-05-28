@@ -16,7 +16,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - openmetadata_mysql_data:/var/lib/mysql
-      - ./mysql-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
              "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
@@ -25,6 +24,27 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # DB init — creates airflow_db and grants access
+  # ─────────────────────────────────────────────
+  openmetadata-db-init:
+    image: openmetadata/db:1.12.6
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mysql -h openmetadata-mysql -uroot -p"$$MYSQL_ROOT_PASSWORD" -e "
+          CREATE DATABASE IF NOT EXISTS airflow_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          GRANT ALL PRIVILEGES ON airflow_db.* TO '$$MYSQL_USER'@'%';
+          FLUSH PRIVILEGES;
+        "
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+    depends_on:
+      openmetadata-mysql:
+        condition: service_healthy
+    restart: "no"
 
   # ─────────────────────────────────────────────
   # Elasticsearch 7.16 — search & indexing
@@ -169,6 +189,8 @@ services:
     depends_on:
       openmetadata-mysql:
         condition: service_healthy
+      openmetadata-db-init:
+        condition: service_completed_successfully
       openmetadata-server:
         condition: service_healthy
     healthcheck:
