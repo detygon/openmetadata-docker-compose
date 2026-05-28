@@ -6,15 +6,14 @@ services:
 
   # ─────────────────────────────────────────────
   # MySQL 8 — metadata store
+  # The openmetadata/db image ships its own /docker-entrypoint-initdb.d/mysql-script.sql
+  # that creates openmetadata_db, airflow_db, openmetadata_user, and airflow_user.
+  # We only need to set the root password; the rest is handled by the image.
   # ─────────────────────────────────────────────
   openmetadata-mysql:
     image: openmetadata/db:1.12.6
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_ROOT_HOST: "%"
-      MYSQL_DATABASE: openmetadata_db
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - openmetadata_mysql_data:/var/lib/mysql
     healthcheck:
@@ -25,29 +24,6 @@ services:
       retries: 15
       start_period: 60s
     restart: unless-stopped
-
-  # ─────────────────────────────────────────────
-  # DB init — creates airflow_db and grants access
-  # ─────────────────────────────────────────────
-  openmetadata-db-init:
-    image: openmetadata/db:1.12.6
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        until mysql -h openmetadata-mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" > /dev/null 2>&1; do
-          echo "Waiting for MySQL..."; sleep 3;
-        done
-        mysql -h openmetadata-mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
-          -e "CREATE DATABASE IF NOT EXISTS airflow_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" \
-          -e "GRANT ALL PRIVILEGES ON airflow_db.* TO '$MYSQL_USER'@'%';" \
-          -e "FLUSH PRIVILEGES;"
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-    depends_on:
-      openmetadata-mysql:
-        condition: service_healthy
-    restart: "no"
 
   # ─────────────────────────────────────────────
   # Elasticsearch 7.16 — search & indexing
@@ -101,8 +77,8 @@ services:
     command: "./bootstrap/openmetadata-ops.sh migrate"
     environment:
       DB_HOST: openmetadata-mysql
-      DB_USER: ${MYSQL_USER}
-      DB_USER_PASSWORD: ${MYSQL_PASSWORD}
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
       OM_DATABASE: openmetadata_db
       ELASTICSEARCH_HOST: openmetadata-elasticsearch
       # Workaround: image openmetadata.yaml default wraps this in quotes ("no-ssl"),
@@ -123,8 +99,8 @@ services:
     environment:
       # ── Database ──────────────────────────────
       DB_HOST: openmetadata-mysql
-      DB_USER: ${MYSQL_USER}
-      DB_USER_PASSWORD: ${MYSQL_PASSWORD}
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
       OM_DATABASE: openmetadata_db
 
       # ── Search ────────────────────────────────
@@ -174,8 +150,8 @@ services:
       DB_HOST: openmetadata-mysql
       DB_PORT: "3306"
       AIRFLOW_DB: airflow_db
-      DB_USER: ${MYSQL_USER}
-      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_USER: airflow_user
+      DB_PASSWORD: airflow_pass
       DB_SCHEME: mysql+mysqldb
       # ── Airflow admin ─────────────────────────
       AIRFLOW_ADMIN_USER: ${AIRFLOW_USERNAME:-admin}
@@ -192,8 +168,6 @@ services:
     depends_on:
       openmetadata-mysql:
         condition: service_healthy
-      openmetadata-db-init:
-        condition: service_completed_successfully
       openmetadata-server:
         condition: service_healthy
     healthcheck:
