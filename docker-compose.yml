@@ -60,6 +60,7 @@ services:
     depends_on:
       openmetadata-elasticsearch:
         condition: service_healthy
+    restart: "no"
     command:
       - sh
       - -c
@@ -67,7 +68,6 @@ services:
         curl -sf -X PUT "http://openmetadata-elasticsearch:9200/vector_search_index" \
           -H "Content-Type: application/json" \
           -d '{"settings":{"number_of_shards":1,"number_of_replicas":0}}' || true
-    restart: "no"
 
   # ─────────────────────────────────────────────
   # DB bootstrap — runs migrations then exits.
@@ -113,7 +113,7 @@ services:
       # ── Pipeline / Airflow ────────────────────
       PIPELINE_SERVICE_CLIENT_ENDPOINT: http://openmetadata-ingestion:8080
       PIPELINE_SERVICE_CLIENT_VERIFY_SSL: no-ssl
-      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      SERVER_HOST_API_URL: ${OPENMETADATA_SERVER_URL}/api
       AIRFLOW_USERNAME: ${AIRFLOW_USERNAME:-admin}
       AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD}
 
@@ -127,14 +127,16 @@ services:
         condition: service_healthy
       openmetadata-elasticsearch:
         condition: service_healthy
+      openmetadata-es-setup:
+        condition: service_completed_successfully
       openmetadata-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8585/api/v1/system/config"]
       interval: 30s
       timeout: 10s
       retries: 12
-      start_period: 120s
+      start_period: 150s
     restart: unless-stopped
 
   # ─────────────────────────────────────────────
@@ -164,7 +166,6 @@ services:
       OPENMETADATA_SERVER_HOST_PORT: http://openmetadata-server:8585/api
     volumes:
       - openmetadata_dag_configs:/opt/airflow/dag_generated_configs
-      - openmetadata_dag_tmp:/tmp
     depends_on:
       openmetadata-mysql:
         condition: service_healthy
@@ -183,4 +184,3 @@ volumes:
   openmetadata_mysql_data:
   openmetadata_es_data:
   openmetadata_dag_configs:
-  openmetadata_dag_tmp:
