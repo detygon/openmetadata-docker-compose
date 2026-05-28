@@ -11,6 +11,7 @@ services:
     image: openmetadata/db:1.12.6
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_HOST: "%"
       MYSQL_DATABASE: openmetadata_db
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
@@ -21,8 +22,8 @@ services:
              "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 15
+      start_period: 60s
     restart: unless-stopped
 
   # ─────────────────────────────────────────────
@@ -33,6 +34,9 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
+        until mysql -h openmetadata-mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" > /dev/null 2>&1; do
+          echo "Waiting for MySQL..."; sleep 3;
+        done
         mysql -h openmetadata-mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
           -e "CREATE DATABASE IF NOT EXISTS airflow_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" \
           -e "GRANT ALL PRIVILEGES ON airflow_db.* TO '$MYSQL_USER'@'%';" \
