@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════
-# OpenMetadata 1.12.x — Coolify Docker Compose
+# OpenMetadata 1.12.9 — Coolify Docker Compose
 # ═══════════════════════════════════════════════════════════════════
 
 services:
@@ -11,7 +11,7 @@ services:
   # We only need to set the root password; the rest is handled by the image.
   # ─────────────────────────────────────────────
   openmetadata-mysql:
-    image: openmetadata/db:1.12.6
+    image: openmetadata/db:1.12.9
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
@@ -73,7 +73,7 @@ services:
   # DB bootstrap — runs migrations then exits.
   # ─────────────────────────────────────────────
   openmetadata-migrate:
-    image: openmetadata/server:1.12.6
+    image: openmetadata/server:1.12.9
     command: "./bootstrap/openmetadata-ops.sh migrate"
     environment:
       DB_HOST: openmetadata-mysql
@@ -95,7 +95,7 @@ services:
   # OpenMetadata Server
   # ─────────────────────────────────────────────
   openmetadata-server:
-    image: openmetadata/server:1.12.6
+    image: openmetadata/server:1.12.9
     environment:
       # ── Database ──────────────────────────────
       DB_HOST: openmetadata-mysql
@@ -146,7 +146,7 @@ services:
   # Ingestion / Airflow
   # ─────────────────────────────────────────────
   openmetadata-ingestion:
-    image: openmetadata/ingestion:1.12.6
+    image: openmetadata/ingestion:1.12.9
     entrypoint: /bin/bash
     command:
       - "/opt/airflow/ingestion_dependency.sh"
